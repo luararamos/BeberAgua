@@ -1,5 +1,8 @@
 package com.example.beberagua;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -20,6 +23,9 @@ public class MainActivity extends AppCompatActivity {
     private int minute;
     private int interval;
 
+    private boolean activated = false;
+
+    private SharedPreferences preferences;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -31,13 +37,32 @@ public class MainActivity extends AppCompatActivity {
 
         timePicker.setIs24HourView(true);
 
+        preferences = getSharedPreferences("db", Context.MODE_PRIVATE);
+        activated = preferences.getBoolean("activated", false);
+
+        if (activated) {
+            btnNotify.setText(R.string.pause);
+            ColorStateList color = ContextCompat.getColorStateList(this, android.R.color.black);
+            btnNotify.setBackgroundTintList(color);
+            activated = true;
+
+            preferences.getInt("interval",0);
+            preferences.getInt("hour",timePicker.getCurrentHour());
+            preferences.getInt("minute",timePicker.getCurrentMinute());
+
+            editMinutes.setText(String.valueOf(interval));
+            timePicker.setCurrentHour(hour);
+            timePicker.setCurrentMinute(minute);
+
+        }
+
 
     }
 
     public void notifyClick(View view) {
         String sInterval = editMinutes.getText().toString();
 
-        if (sInterval.isEmpty()){
+        if (sInterval.isEmpty()) {
             Toast.makeText(this, R.string.error_msg, Toast.LENGTH_SHORT).show();
             return;
         }
@@ -46,9 +71,34 @@ public class MainActivity extends AppCompatActivity {
         minute = timePicker.getCurrentMinute();
         interval = Integer.parseInt(sInterval);
 
-        btnNotify.setText(R.string.pause);
-        int color = ContextCompat.getColor(this, android.R.color.black);
-        btnNotify.setBackgroundColor(color);
+        if (!activated) {
+            btnNotify.setText(R.string.pause);
+            ColorStateList color = ContextCompat.getColorStateList(this, android.R.color.black);
+            btnNotify.setBackgroundTintList(color);
+            activated = true;
+
+            SharedPreferences.Editor editor = preferences.edit();
+            editor.putBoolean("activated", activated);
+            editor.putInt("interval", interval);
+            editor.putInt("hour", hour);
+            editor.putInt("minute", minute);
+            editor.apply();
+
+        } else {
+            btnNotify.setText(R.string.notify);
+            ColorStateList color = ContextCompat.getColorStateList(this, R.color.colorAccent);
+            btnNotify.setBackgroundTintList(color);
+            activated = false;
+
+            SharedPreferences.Editor editor = preferences.edit();
+            editor.putBoolean("activated", activated);
+            editor.remove("interval");
+            editor.remove("hour");
+            editor.remove("minute");
+            editor.apply();
+
+        }
+
         Log.d("Teste", "hora: " + hour + " minuto: " + minute + " intervalo: " + interval);
 
     }
