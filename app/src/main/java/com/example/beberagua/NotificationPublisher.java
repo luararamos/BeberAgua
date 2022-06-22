@@ -10,8 +10,8 @@ import android.content.Intent;
 import android.os.Build;
 
 public class NotificationPublisher extends BroadcastReceiver {
-    private static final String KEY_NOTIFICATION = "key_notification";
-    private static final String KEY_NOTIFICATION_ID = "key_notification_id";
+    public static final String KEY_NOTIFICATION = "key_notification";
+    public static final String KEY_NOTIFICATION_ID = "key_notification_id";
 
     @Override
     public void onReceive(Context context, Intent intent) {
