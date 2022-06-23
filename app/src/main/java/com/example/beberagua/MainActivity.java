@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
-import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -17,6 +16,8 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+
+import java.util.Calendar;
 
 public class MainActivity extends AppCompatActivity {
     private static final String KEY_NOTIFY = "key_notify";
@@ -35,6 +36,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean activated = false;
 
     private SharedPreferences preferences;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -56,9 +58,9 @@ public class MainActivity extends AppCompatActivity {
             btnNotify.setBackgroundTintList(color);
             activated = true;
 
-            preferences.getInt(KEY_INTERVAL,0);
-            preferences.getInt(KEY_HOUR,timePicker.getCurrentHour());
-            preferences.getInt(KEY_MINUTE,timePicker.getCurrentMinute());
+            preferences.getInt(KEY_INTERVAL, 0);
+            preferences.getInt(KEY_HOUR, timePicker.getCurrentHour());
+            preferences.getInt(KEY_MINUTE, timePicker.getCurrentMinute());
 
             editMinutes.setText(String.valueOf(interval));
             timePicker.setCurrentHour(hour);
@@ -98,16 +100,20 @@ public class MainActivity extends AppCompatActivity {
             editor.putInt(KEY_MINUTE, minute);
             editor.apply();
 
-            Intent notificationIntent =  new Intent(MainActivity.this, NotificationPublisher.class);
-            notificationIntent.putExtra(NotificationPublisher.KEY_NOTIFICATION_ID, 1 );
+            Calendar calendar = Calendar.getInstance();
+            calendar.set(Calendar.HOUR_OF_DAY, hour);
+            calendar.set(Calendar.MINUTE, minute);
+            calendar.set(Calendar.SECOND, 0);
+
+            Intent notificationIntent = new Intent(MainActivity.this, NotificationPublisher.class);
+            notificationIntent.putExtra(NotificationPublisher.KEY_NOTIFICATION_ID, 1);
             notificationIntent.putExtra(NotificationPublisher.KEY_NOTIFICATION, "Hora de beber Água");
 
             PendingIntent broascast = PendingIntent.getBroadcast(MainActivity.this, 0,
-                    notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+                    notificationIntent, PendingIntent.FLAG_CANCEL_CURRENT);
 
-            long futureInMillis = SystemClock.elapsedRealtime() + (interval *1000);
             AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-            alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, futureInMillis, broascast);
+            alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), interval * 60 * 1000, broascast);
 
             activated = true;
 
@@ -123,6 +129,12 @@ public class MainActivity extends AppCompatActivity {
             editor.remove(KEY_HOUR);
             editor.remove(KEY_MINUTE);
             editor.apply();
+
+            Intent notificationIntent = new Intent(MainActivity.this, NotificationPublisher.class);
+            PendingIntent broascast = PendingIntent.getBroadcast(MainActivity.this, 0,
+                    notificationIntent, PendingIntent.FLAG_CANCEL_CURRENT);
+            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            alarmManager.cancel(broascast);
 
         }
 

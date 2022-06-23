@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.example.beberagua">
 
+    <uses-permission android:name="android.permission.VIBRATE" />
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -23,6 +24,7 @@
             </intent-filter>
         </activity>
         <receiver android:name=".NotificationPublisher"/>
+        <receiver android:name=".AlarmReceiver"/>
     </application>
 
 </manifest>
