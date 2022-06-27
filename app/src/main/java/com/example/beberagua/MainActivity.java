@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -29,117 +28,134 @@ public class MainActivity extends AppCompatActivity {
     private EditText editMinutes;
     private TimePicker timePicker;
 
-    private int hour;
-    private int minute;
-    private int interval;
+    private SharedPreferences storage;
 
     private boolean activated = false;
-
-    private SharedPreferences preferences;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        storage = getSharedPreferences("db", Context.MODE_PRIVATE);
 
         btnNotify = findViewById(R.id.btn_notify);
         editMinutes = findViewById(R.id.edt_txt_number_interval);
         timePicker = findViewById(R.id.time_picker);
 
+        activated = storage.getBoolean(KEY_NOTIFY, false);
+
+        setupUI(activated, storage);
+
         timePicker.setIs24HourView(true);
 
-        preferences = getSharedPreferences("db", Context.MODE_PRIVATE);
-        activated = preferences.getBoolean(KEY_NOTIFY, false);
-
-        if (activated) {
-            btnNotify.setText(R.string.pause);
-            ColorStateList color = ContextCompat.getColorStateList(this, android.R.color.black);
-            btnNotify.setBackgroundTintList(color);
-            activated = true;
-
-            preferences.getInt(KEY_INTERVAL, 0);
-            preferences.getInt(KEY_HOUR, timePicker.getCurrentHour());
-            preferences.getInt(KEY_MINUTE, timePicker.getCurrentMinute());
-
-            editMinutes.setText(String.valueOf(interval));
-            timePicker.setCurrentHour(hour);
-            timePicker.setCurrentMinute(minute);
-
-        } else {
-            btnNotify.setText(R.string.notify);
-            btnNotify.setBackgroundColor(ContextCompat.getColor(MainActivity.this,
-                    R.color.colorAccent));
-        }
-
+        btnNotify.setOnClickListener(notifyListener);
 
     }
 
-    public void notifyClick(View view) {
+    private void alert(int resId) {
+        Toast.makeText(this, resId, Toast.LENGTH_SHORT).show();
+    }
+
+    private boolean intervalIsValid() {
         String sInterval = editMinutes.getText().toString();
-
         if (sInterval.isEmpty()) {
-            Toast.makeText(this, R.string.error_msg, Toast.LENGTH_SHORT).show();
-            return;
+            alert(R.string.error_msg);
+            return false;
         }
+        if (sInterval.equals("0")) {
+            alert(R.string.zero_value);
+            return false;
+        }
+        return true;
+    }
 
-        hour = timePicker.getCurrentHour();
-        minute = timePicker.getCurrentMinute();
-        interval = Integer.parseInt(sInterval);
-
-        if (!activated) {
+    private void setupUI(boolean activated, SharedPreferences storage) {
+        if (activated) {
             btnNotify.setText(R.string.pause);
-            ColorStateList color = ContextCompat.getColorStateList(this, android.R.color.black);
-            btnNotify.setBackgroundTintList(color);
-            activated = true;
+            btnNotify.setBackgroundResource(R.drawable.bg_button_backgroud);
+            editMinutes.setText(String.valueOf(storage.getInt(KEY_INTERVAL, 0)));
+            timePicker.setCurrentHour(storage.getInt(KEY_HOUR, timePicker.getCurrentHour()));
+            timePicker.setCurrentMinute(storage.getInt(KEY_MINUTE, timePicker.getCurrentMinute()));
 
-            SharedPreferences.Editor editor = preferences.edit();
-            editor.putBoolean(KEY_NOTIFY, activated);
+        } else {
+            btnNotify.setText(R.string.notify);
+            btnNotify.setBackgroundResource(R.drawable.bg_button_backgroud_accent);
+        }
+    }
+
+    private void updateStorage(boolean added, int interval, int hour, int minute) {
+        SharedPreferences.Editor editor = storage.edit();
+        editor.putBoolean(KEY_NOTIFY, activated);
+
+        if (added) {
             editor.putInt(KEY_INTERVAL, interval);
             editor.putInt(KEY_HOUR, hour);
             editor.putInt(KEY_MINUTE, minute);
-            editor.apply();
 
+        } else {
+            editor.remove(KEY_INTERVAL);
+            editor.remove(KEY_HOUR);
+            editor.remove(KEY_MINUTE);
+        }
+        editor.apply();
+    }
+
+    private void setupNotification(boolean added, int interval, int hour, int minute) {
+        Intent notificationIntent = new Intent(MainActivity.this, NotificationPublisher.class);
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+
+        if (added) {
             Calendar calendar = Calendar.getInstance();
             calendar.set(Calendar.HOUR_OF_DAY, hour);
             calendar.set(Calendar.MINUTE, minute);
             calendar.set(Calendar.SECOND, 0);
 
-            Intent notificationIntent = new Intent(MainActivity.this, NotificationPublisher.class);
             notificationIntent.putExtra(NotificationPublisher.KEY_NOTIFICATION_ID, 1);
             notificationIntent.putExtra(NotificationPublisher.KEY_NOTIFICATION, "Hora de beber Água");
 
             PendingIntent broascast = PendingIntent.getBroadcast(MainActivity.this, 0,
                     notificationIntent, PendingIntent.FLAG_CANCEL_CURRENT);
 
-            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-            alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), interval * 60 * 1000, broascast);
-
-            activated = true;
-
+            alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(),
+                    interval * 60 * 1000, broascast);
         } else {
-            btnNotify.setText(R.string.notify);
-            ColorStateList color = ContextCompat.getColorStateList(this, R.color.colorAccent);
-            btnNotify.setBackgroundTintList(color);
-            activated = false;
-
-            SharedPreferences.Editor editor = preferences.edit();
-            editor.putBoolean(KEY_NOTIFY, activated);
-            editor.remove(KEY_INTERVAL);
-            editor.remove(KEY_HOUR);
-            editor.remove(KEY_MINUTE);
-            editor.apply();
-
-            Intent notificationIntent = new Intent(MainActivity.this, NotificationPublisher.class);
             PendingIntent broascast = PendingIntent.getBroadcast(MainActivity.this, 0,
                     notificationIntent, PendingIntent.FLAG_CANCEL_CURRENT);
-            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-            alarmManager.cancel(broascast);
 
+            alarmManager.cancel(broascast);
         }
 
-        Log.d("Teste", "hora: " + hour + " minuto: " + minute + " intervalo: " + interval);
-
     }
+
+    private View.OnClickListener notifyListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            if (!activated) {
+                if (!intervalIsValid()) return;
+
+                int hour = timePicker.getCurrentHour();
+                int minute = timePicker.getCurrentMinute();
+                int interval = Integer.parseInt(editMinutes.getText().toString());
+
+                updateStorage(true, interval, hour, minute);
+                setupUI(true, storage);
+
+                setupNotification(true, interval, hour, minute);
+                alert(R.string.notified);
+
+                activated = true;
+
+            } else {
+                updateStorage(false, 0, 0, 0);
+                setupUI(false, storage);
+                setupNotification(false, 0,0,0);
+                alert(R.string.notified_pause);
+
+                activated = false;
+            }
+
+        }
+    };
 
 }
